@@ -1,0 +1,1 @@
+mpirun -np 2  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/1M.txt b 
