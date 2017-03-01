@@ -7,155 +7,290 @@
 #include <omp.h>
 
 /* GLOBAL DECLARATIONS */
+#define NUM_DIGITS 16
 int numData, numThreads;
 
 //typdef unsigned int Data;
 
-unsigned int *data;
-#define NUM_DIGITS 10
-typedef struct Node {
-	unsigned int data;
-	struct Node *pNext; 
-}Nd;
-Nd bin[NUM_DIGITS];
+void printData(char *name, unsigned int *data, int numData);
 
-void addData(Nd *N, unsigned int data)
+void radix_sort_A(unsigned int *A, int numData)
 {
-	Nd *tmp= malloc(sizeof(Nd));
-  if(tmp==NULL) {
-    printf("Unable to allocate memory.\n");
-    exit(1);
-  }
-  tmp->data=data;
-	tmp->pNext=N->pNext;
-	N->pNext=tmp;
-}
+    int b=32; 
+    int r=4;
+    int r2=pow(2,r);
+    unsigned int MASK=pow(2,r)-1;
+    unsigned int *base[r2];
+    unsigned int count[r2];
+    unsigned int Pcount[r2];
 
-void printBin();
-void printData(unsigned int *D);
-unsigned int* loadBin(Nd *tmp, unsigned int *D);
-void radix_sort_s(unsigned int *data, int numData);
+    for(int i=0; i<pow(2,r); i++)
+        base[i]=calloc(numData, sizeof(unsigned int));
+
+    for(int i=0; i<(b/r); i++)
+    {
+        for(int z=0; z<pow(2,r); z++)
+            memset(base[z], 0, numData*sizeof(unsigned int));
+        memset(count, 0, sizeof(unsigned int)*r2);
+
+#pragma omp parallel for num_threads(numThreads) shared(numData, A, base,count) schedule(dynamic,1)
+        for(int k=0; k<numData; k++)
+        {
+            int val=A[k]&(MASK<<i);
+#pragma omp crtical 
+                base[val][count[val]++]=A[k];
+        }
+        memset(Pcount, 0, sizeof(unsigned int)*r2);
+
+        for(int j=0; j<16; j++)
+        {
+            Pcount[j+1]= Pcount[j]+count[j];
+            printf("%d\t", Pcount[j]);
+            fflush(stdout);
+        }
+
+#pragma omp parallel for num_threads(numThreads) shared(A, base,count, Pcount) schedule(dynamic,1)
+        for(int j=0; j<r2; j++)
+            for(int k=0; k<count[j]; k++)
+            {
+                A[Pcount[j]+k]=base[j][k];
+            }
+    }
+    for(int i=0; i<r2; i++)
+        if(base[i])
+            free(base[i]); 
+}
+#if 0  
 void radix_sort_s(unsigned int *data, int numData)
 {
-  int m=1,n=1;
-  for(int i=0; i<10;i++)
-    bin[i].pNext=NULL;
+    int m=1;
+    unsigned int count[NUM_DIGITS]={0};
+    unsigned int Pcount[NUM_DIGITS]={0};
+    int MSB=0;
 
-  for(int i=0; i<NUM_DIGITS;i++)
-  {
-    for(unsigned int j=0; j<numData; j++){
-      addData(&bin[((*(data+j))/m)%10], *(data+j));
-      //printf("%d ",j);
-    }
-    m*=10;
-    printBin();
-    //printData(data);
-  }
-}
+    printData("Input data", data, numData);
 
-void printData(unsigned int *D)
-{
-  printf("Data is : ");
-  for(int i=0;i<numData;i++)
-  {
-    printf("%u\t",*D);
-    D++;
-  }
-  printf("\n");
-}
-
-void printBin()
-{
-  Nd *tmp;
-  unsigned int *D=data;
-  for(int i=0; i<NUM_DIGITS; i++)
-  {
-    tmp=bin[i].pNext;
-    printf("Bin[%d] = ", i);
-    fflush(stdout);
-    D=loadBin(tmp, D);
-    bin[i].pNext=NULL;
-    printf("\n");
-  }
-  printf("\n");
-}
-
-unsigned int* loadBin(Nd *tmp, unsigned int *D)
-{
-    //static unsigned int a=1;
-    //printf("%u %p %u\n",a++, tmp->pNext, tmp->data);
-    //fflush(stdout);
-    if(tmp != NULL)
+    unsigned int largest=0;
+#pragma omp parallel for num_threads(numThreads) shared(data) schedule(dynamic,1)  reduction(max:largest) 
+    for(unsigned int j=0; j<numData; j++)
     {
-      D=loadBin(tmp->pNext, D);
-      printf("%u\t", tmp->data);
-      *D=tmp->data;
-      D++;
-      free(tmp);
+        if(data[j]>largest)
+            largest=data[j];
     }
-    return D;
+    printf("Largest number is %d.\n", largest);
+
+    for(int i=(sizeof(unsigned int)*8)-1; i>0; i--)
+        if(largest&(0x01<<i)){
+            MSB=i;
+            break;
+        }
+    printf("MSB is %d (0x%X)\n",MSB, largest);
+
+    for(int i=0; i<=MSB;i++)
+    {
+        memset(count, 0, NUM_DIGITS*sizeof(unsigned int));
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(unsigned int j=0; j<numData; j++)
+        {
+            for(int i=0; i<NUM_DIGITS; i++)
+                base[i][j]=0;
+        }
+
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(unsigned int j=0; j<numData; j++)
+        {
+            if(((data[j]/m)%NUM_DIGITS)==0) {
+#pragma omp critical (b0)
+                base[0][count[0]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==1) {
+#pragma omp critical (b1)
+                base[1][count[1]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==2) {
+#pragma omp critical (b2)
+                base[2][count[2]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==3) {
+#pragma omp critical (b3)
+                base[3][count[3]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==4) {
+#pragma omp critical (b4)
+                base[4][count[4]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==5) {
+#pragma omp critical (b5)
+                base[5][count[5]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==6) {
+#pragma omp critical (b6)
+                base[6][count[6]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==7) {
+#pragma omp critical (b7)
+                base[7][count[7]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==8) {
+#pragma omp critical (b8)
+                base[8][count[8]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==9) {
+#pragma omp critical (b9)
+                base[9][count[9]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==10) {
+#pragma omp critical (b10)
+                base[10][count[10]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==11) {
+#pragma omp critical (b11)
+                base[11][count[11]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==12) {
+#pragma omp critical (b12)
+                base[12][count[12]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==13) {
+#pragma omp critical (b13)
+                base[13][count[13]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==14) {
+#pragma omp critical (b14)
+                base[14][count[14]++]= data[j];
+            } else if(((data[j]/m)%NUM_DIGITS)==15) {
+#pragma omp critical (b15)
+                base[15][count[15]++]= data[j];
+            }
+        }
+        unsigned int tot_count=0;
+        for(int i=1; i<NUM_DIGITS; i++)
+            Pcount[i] = Pcount[i-1]+ count[i-1];
+
+        tot_count = Pcount[NUM_DIGITS-1]+count[NUM_DIGITS-1];
+        if(tot_count != numData) {
+            printf("There is a BUG in segregation(%d!=%d).\n", tot_count, numData);
+        }
+
+#if 0 
+        unsigned int j=0;
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=0; j<count[0]; j++)
+                data[j]=base[0][j];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[0]; j<count[1]; j++)
+                data[j]=base[1][j-count[0]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[1]; j<count[2]; j++)
+                data[j]=base[2][j-count[1]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[2]; j<count[3]; j++)
+                data[j]=base[3][j-count[2]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[3]; j<count[4]; j++)
+                data[j]=base[4][j-count[3]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[4]; j<count[5]; j++)
+                data[j]=base[5][j-count[4]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[5]; j<count[6]; j++)
+                data[j]=base[6][j-count[5]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[6]; j<count[7]; j++)
+                data[j]=base[7][j-count[6]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[7]; j<count[8]; j++)
+                data[j]=base[7][j-count[7]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[8]; j<count[9]; j++)
+                data[j]=base[1][j-count[8]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[9]; j<count[10]; j++)
+                data[j]=base[10][j-count[9]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[10]; j<count[11]; j++)
+                data[j]=base[11][j-count[10]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[11]; j<count[12]; j++)
+                data[j]=base[12][j-count[11]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[12]; j<count[13]; j++)
+                data[j]=base[13][j-count[12]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[13]; j<count[14]; j++)
+                data[j]=base[14][j-count[13]];
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base) schedule(dynamic,1)   
+        for(j=count[14]; j<count[15]; j++)
+                data[j]=base[15][j-count[14]];
+#endif 
+
+#pragma omp parallel for num_threads(numThreads) shared(data, count, base, Pcount) schedule(dynamic,1)   
+        for(int i=0; i<NUM_DIGITS; i++)
+            for(int j=0; j<count[i]; j++)
+                data[Pcount[i]+j]=base[i][j];
+
+        m*=NUM_DIGITS;
+    }
 }
+#endif
+
+void printData(char *name, unsigned int *data, int numData)
+{
+    return;
+    printf("%s(%d): ", name, numData);
+    //for(int j=0; j<numData; j++)
+    //    printf("%d \t", data[j]);
+    printf("\n");
+}
+
 void main(int argc, char **argv)
 {
-	if(argc-1 < 3 ){
-		printf("Error : Please use ./rs_openmp <path to data file> <Number of threads> <path to o/p file>.\n");
-		exit(0);
-	}
-	FILE *fData = fopen(argv[1],"r");
-  numThreads=atoi(argv[2]);
-  FILE *fOutput= fopen(argv[3],"w+");
+    if(argc-1 < 3 ){
+        printf("Error : Please use ./rs_openmp <path to data file> <Number of threads> <path to o/p file>.\n");
+        exit(0);
+    }
+    FILE *fData = fopen(argv[1],"r");
+    numThreads=atoi(argv[2]);
+    FILE *fOutput= fopen(argv[3],"w+");
 
-	if(fData== NULL) {
-		printf("Error while opening the file %s.Errno = %d.\n", argv[1], errno);
-		exit(1);
-	} else {
-		printf("Data file       = \"%s\".\n"
-				"Num of threads  = %d.\n" 
-        "Output file     = \"%s\".\n", argv[1], numThreads, argv[3]);
-	}
-	if(fscanf(fData,"%d", &numData) < 1) {
-		printf("Error while getting the number of Data . errno= %d\n", errno);
-    exit(1);
-	}
-	printf("Number of data points = %d \n", numData);
+    if(fData== NULL) {
+        printf("Error while opening the file %s.Errno = %d.\n", argv[1], errno);
+        exit(1);
+    } else {
+        printf("Data file       = \"%s\".\n"
+                "Num of threads  = %d.\n" 
+                "Output file     = \"%s\".\n", argv[1], numThreads, argv[3]);
+    }
+    if(fscanf(fData,"%d", &numData) < 1) {
+        printf("Error while getting the number of Data . errno= %d\n", errno);
+        exit(1);
+    }
+    printf("Number of data points = %d \n", numData);
 
-  if(numData*sizeof(unsigned int)> (100*1000*1000)) {
-    printf("Input data size(%.4fMB) is greater than allowed(100MB).\n", ((double)numData*sizeof(unsigned int)/(1000*1000)));
-    exit(1);
-  }
+    unsigned int *data ;
 
-  data= calloc(numData,sizeof(unsigned int));
-	if(data==NULL){
-		printf("Out of memory! while allocating mem for Data. errno %d \n",errno);
-		exit(1);
-	}
+    if(numData*sizeof(unsigned int)> (100*1000*1000)) {
+        printf("Input data size(%.4fMB) is greater than allowed(100MB).\n", ((double)numData*sizeof(unsigned int)/(1000*1000)));
+        //exit(1);
+    }
 
-	// Read the data 
-	for(int i=0; i< numData; i++) {
-			if(fscanf(fData,"%u", data+i) != 1) {
-				printf("Error while getting the (%d)data . errno= %d\n", i, errno);
-				exit(0);
-		}
-	}
-  printf("\n*****************  Data elements *************************\n");
-	//for(int i=0; i< numData; i++)
-  //  printf("%u\t", *(data+i));
-  printf("\n**********************************************************\n");
+    data=calloc(numData, sizeof(unsigned int));
 
-  memset(bin, 0, sizeof(Nd)*NUM_DIGITS);
+    if(data==NULL ){
+        printf("Out of memory! while allocating mem for Data. errno %d \n",errno);
+        exit(1);
+    }
 
-  double start=monotonic_seconds();
-  radix_sort_s(data, numData);
-  double end=monotonic_seconds();
+    // Read the data 
+    for(int i=0; i< numData; i++) {
+        if(fscanf(fData,"%u", &data[i]) != 1) {
+            printf("Error while getting the (%d)data . errno= %d\n", i, errno);
+            exit(0);
+        }
+    }
+    //printf("\n*****************  Data elements *************************\n");
+    //for(int i=0; i< numData; i++)
+    //  printf("%u\t", data[i]);
+    //printf("\n**********************************************************\n");
 
-  print_time(end-start);
+    double start=monotonic_seconds();
+    radix_sort_A(data, numData);
+    double end=monotonic_seconds();
 
-  print_numbers(argv[3], data, numData);
+    print_time(end-start);
 
-  if(data)
-    free(data);
-  if(fData)
-    fclose(fData);
-  if(fOutput)
-    fclose(fOutput);
+    print_numbers(argv[3], data, numData);
+
+    if(data)
+        free(data);
+    if(fData)
+        fclose(fData);
+    if(fOutput)
+        fclose(fOutput);
 }
