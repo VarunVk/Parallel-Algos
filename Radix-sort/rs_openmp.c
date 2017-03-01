@@ -17,48 +17,47 @@ void printData(char *name, unsigned int *data, int numData);
 void radix_sort_A(unsigned int *A, int numData)
 {
     int b=32; 
-    int r=4;
+    int r=2;
     int r2=pow(2,r);
     unsigned int MASK=pow(2,r)-1;
-    unsigned int *base[r2];
     unsigned int count[r2];
     unsigned int Pcount[r2];
+    unsigned int *tmp_data;
+    tmp_data=calloc(numData, sizeof(unsigned int));
 
-    for(int i=0; i<pow(2,r); i++)
-        base[i]=calloc(numData, sizeof(unsigned int));
-
-    for(int i=0; i<(b/r); i++)
+    for(int i=0; i<(b/r2); i++)
     {
-        for(int z=0; z<pow(2,r); z++)
-            memset(base[z], 0, numData*sizeof(unsigned int));
         memset(count, 0, sizeof(unsigned int)*r2);
-
-#pragma omp parallel for num_threads(numThreads) shared(numData, A, base,count) schedule(dynamic,1)
+//#pragma omp parallel for num_threads(numThreads) shared(numData, A,count) schedule(dynamic,1)
         for(int k=0; k<numData; k++)
         {
-            int val=A[k]&(MASK<<i);
-#pragma omp crtical 
-                base[val][count[val]++]=A[k];
+//#pragma omp atomic
+            __sync_fetch_and_add(&count[A[k]&(MASK<<(i*r2))],1);
         }
-        memset(Pcount, 0, sizeof(unsigned int)*r2);
 
-        for(int j=0; j<16; j++)
+        memset(Pcount, 0, sizeof(unsigned int)*r2);
+        for(int j=0; j<r2-1; j++)
         {
             Pcount[j+1]= Pcount[j]+count[j];
             printf("%d\t", Pcount[j]);
             fflush(stdout);
         }
+        printf("\tTotal %d\n", Pcount[r2-1]+count[r2-1]);
 
-#pragma omp parallel for num_threads(numThreads) shared(A, base,count, Pcount) schedule(dynamic,1)
-        for(int j=0; j<r2; j++)
-            for(int k=0; k<count[j]; k++)
-            {
-                A[Pcount[j]+k]=base[j][k];
-            }
+        memset(count, 0, sizeof(unsigned int)*r2);
+        memset(tmp_data, 0, numData*sizeof(unsigned int));
+//#pragma omp parallel for num_threads(numThreads) shared(A, tmp_data, count, Pcount) schedule(dynamic,1)
+        for(int j=0; j<numData; j++)
+        {
+//#pragma omp crtical 
+            tmp_data[Pcount[A[j]&(MASK<<(i*r2))]+__sync_fetch_and_add(&count[A[j]&(MASK<<(i*r2))],1)]=A[j];
+        }
+        print_numbers("A", A, numData);
+        print_numbers("tmp_data", tmp_data, numData);
+        memcpy(A, tmp_data, sizeof(unsigned int)*numData);
     }
-    for(int i=0; i<r2; i++)
-        if(base[i])
-            free(base[i]); 
+    if(tmp_data)
+        free(tmp_data);
 }
 #if 0  
 void radix_sort_s(unsigned int *data, int numData)
