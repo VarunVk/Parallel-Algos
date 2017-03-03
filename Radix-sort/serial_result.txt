@@ -1,0 +1,145 @@
+REsults for Running serially for r=2
+
+
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> make o 
+rm -f rs_openmp
+gcc -o rs_openmp rs_openmp.c -lm  -g -Wfatal-errors -Werror -march=native -ffast-math -fopenmp
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> ./rs_openmp /export/scratch/CSCI-5451/assignment-2/1M.txt 2 b 
+Data file       = "/export/scratch/CSCI-5451/assignment-2/1M.txt".
+Num of threads  = 2.
+Output file     = "b".
+Number of data points = 1000000 
+250342	249477	249253		Total 1000000
+252660	252515	247383		Total 1000000
+256280	256548	248210		Total 1000000
+256684	255404	256164		Total 1000000
+256593	255567	256308		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+Sort Time: 0.2058s
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> ./rs_openmp /export/scratch/CSCI-5451/assignment-2/10M.txt 2 b 
+Data file       = "/export/scratch/CSCI-5451/assignment-2/10M.txt".
+Num of threads  = 2.
+Output file     = "b".
+Number of data points = 10000000 
+2499270	2499286	2499852		Total 10000000
+2521562	2519720	2477648		Total 10000000
+2561006	2561867	2477623		Total 10000000
+2560324	2557329	2560660		Total 10000000
+2559907	2560317	2559739		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+Sort Time: 2.1712s
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> ./rs_openmp /export/scratch/CSCI-5451/assignment-2/100M.txt 2 b 
+Data file       = "/export/scratch/CSCI-5451/assignment-2/100M.txt".
+Num of threads  = 2.
+Output file     = "b".
+Number of data points = 100000000 
+Input data size(400.0000MB) is greater than allowed(100MB).
+24998923	24999915	24997642		Total 100000000
+25000709	24995308	25008917		Total 100000000
+24990941	25005982	24994331		Total 100000000
+25012267	24994608	24994943		Total 100000000
+25010375	25007292	24997971		Total 100000000
+25038672	24990733	24986503		Total 100000000
+25042252	24984500	24981826		Total 100000000
+26209292	24626742	24586648		Total 100000000
+26223096	26206050	26209139		Total 100000000
+26218842	26224191	26206618		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+Sort Time: 21.5937s
+
+
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> 
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> 
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> ./rs_openmp /export/scratch/CSCI-5451/assignment-2/1M.txt 2 b 
+Data file       = "/export/scratch/CSCI-5451/assignment-2/1M.txt".
+Num of threads  = 2.
+Output file     = "b".
+Number of data points = 1000000 
+250342	249477	249253		Total 1000000
+252660	252515	247383		Total 1000000
+256280	256548	248210		Total 1000000
+256684	255404	256164		Total 1000000
+256593	255567	256308		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+1000000	0	0		Total 1000000
+Sort Time: 0.2062s
+[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> ./rs_openmp /export/scratch/CSCI-5451/assignment-2/10M.txt 2 b 
+Data file       = "/export/scratch/CSCI-5451/assignment-2/10M.txt".
+Num of threads  = 2.
+Output file     = "b".
+Number of data points = 10000000 
+2499270	2499286	2499852		Total 10000000
+2521562	2519720	2477648		Total 10000000
+2561006	2561867	2477623		Total 10000000
+2560324	2557329	2560660		Total 10000000
+2559907	2560317	2559739		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+10000000	0	0		Total 10000000
+Sort Time: 2.1647s
+^[[A^[[A[~/ws/CSCI-5451/git/Radix-sort]vijay094 >> ./rs_openmp /export/scratch/CSCI-5451/assignment-2/100M.txt 2 b 
+Data file       = "/export/scratch/CSCI-5451/assignment-2/100M.txt".
+Num of threads  = 2.
+Output file     = "b".
+Number of data points = 100000000 
+Input data size(400.0000MB) is greater than allowed(100MB).
+24998923	24999915	24997642		Total 100000000
+25000709	24995308	25008917		Total 100000000
+24990941	25005982	24994331		Total 100000000
+25012267	24994608	24994943		Total 100000000
+25010375	25007292	24997971		Total 100000000
+25038672	24990733	24986503		Total 100000000
+25042252	24984500	24981826		Total 100000000
+26209292	24626742	24586648		Total 100000000
+26223096	26206050	26209139		Total 100000000
+26218842	26224191	26206618		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+100000000	0	0		Total 100000000
+Sort Time: 21.4730s
+

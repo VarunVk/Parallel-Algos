@@ -14,51 +14,57 @@ int numData, numThreads;
 
 void printData(char *name, unsigned int *data, int numData);
 
-void radix_sort_A(unsigned int *A, int numData)
+void radix_sort_A(unsigned int *A,unsigned int *tmp_data,  int numData)
 {
     int b=32; 
     int r=2;
-    int r2=pow(2,r);
+    int bits=pow(2,r);
     unsigned int MASK=pow(2,r)-1;
-    unsigned int count[r2];
-    unsigned int Pcount[r2];
-    unsigned int *tmp_data;
-    tmp_data=calloc(numData, sizeof(unsigned int));
+    unsigned int count[bits];
+    unsigned int Pcount[bits];
 
-    for(int i=0; i<(b/r2); i++)
+    for(int i=0; i<(b/r); i++)
     {
-        memset(count, 0, sizeof(unsigned int)*r2);
-//#pragma omp parallel for num_threads(numThreads) shared(numData, A,count) schedule(dynamic,1)
+        memset(count, 0, sizeof(unsigned int)*bits);
         for(int k=0; k<numData; k++)
         {
-//#pragma omp atomic
-            __sync_fetch_and_add(&count[A[k]&(MASK<<(i*r2))],1);
+            count[ (A[k]>>(i*r)) & MASK]++;
         }
 
-        memset(Pcount, 0, sizeof(unsigned int)*r2);
-        for(int j=0; j<r2-1; j++)
+        memset(Pcount, 0, sizeof(unsigned int)*bits);
+        int tot=0;
+        for(int j=0; j<(bits-1); j++)
         {
             Pcount[j+1]= Pcount[j]+count[j];
-            printf("%d\t", Pcount[j]);
+            tot += count[j];
+            printf("%d\t", count[j]);
             fflush(stdout);
         }
-        printf("\tTotal %d\n", Pcount[r2-1]+count[r2-1]);
+        tot += count[bits-1];
+        printf("\tTotal %d\n", tot);
 
-        memset(count, 0, sizeof(unsigned int)*r2);
+
+        memset(count, 0, sizeof(unsigned int)*bits);
         memset(tmp_data, 0, numData*sizeof(unsigned int));
-//#pragma omp parallel for num_threads(numThreads) shared(A, tmp_data, count, Pcount) schedule(dynamic,1)
-        for(int j=0; j<numData; j++)
+
+        for(int k=0; k<numData; k++)
         {
-//#pragma omp crtical 
-            tmp_data[Pcount[A[j]&(MASK<<(i*r2))]+__sync_fetch_and_add(&count[A[j]&(MASK<<(i*r2))],1)]=A[j];
+            int pos = count[ (A[k]>>(i*r)) & MASK]++;
+            int start = Pcount[ (A[k]>>(i*r)) & MASK];
+            tmp_data[start+pos]=A[k];
         }
-        print_numbers("A", A, numData);
-        print_numbers("tmp_data", tmp_data, numData);
         memcpy(A, tmp_data, sizeof(unsigned int)*numData);
     }
-    if(tmp_data)
-        free(tmp_data);
 }
+
+void printData(char *name, unsigned int *data, int numData)
+{
+    printf("%s(%d): \t", name, numData);
+    for(int j=0; j<numData; j++)
+        printf("0x%X \t", data[j]);
+    printf("\n");
+}
+
 #if 0  
 void radix_sort_s(unsigned int *data, int numData)
 {
@@ -219,14 +225,6 @@ void radix_sort_s(unsigned int *data, int numData)
 }
 #endif
 
-void printData(char *name, unsigned int *data, int numData)
-{
-    return;
-    printf("%s(%d): ", name, numData);
-    //for(int j=0; j<numData; j++)
-    //    printf("%d \t", data[j]);
-    printf("\n");
-}
 
 void main(int argc, char **argv)
 {
@@ -278,14 +276,17 @@ void main(int argc, char **argv)
     //  printf("%u\t", data[i]);
     //printf("\n**********************************************************\n");
 
+    unsigned int *tmp_data=calloc(numData, sizeof(unsigned int));
     double start=monotonic_seconds();
-    radix_sort_A(data, numData);
+    radix_sort_A(data,tmp_data, numData);
     double end=monotonic_seconds();
 
     print_time(end-start);
 
     print_numbers(argv[3], data, numData);
 
+    if(tmp_data)
+        free(tmp_data);
     if(data)
         free(data);
     if(fData)
