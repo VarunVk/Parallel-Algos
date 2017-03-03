@@ -17,39 +17,42 @@ void printData(char *name, unsigned int *data, int numData);
 void radix_sort_A(unsigned int *A,unsigned int *tmp_data,  int numData)
 {
     int b=32; 
-    int r=2;
+    int r=16;
     int bits=pow(2,r);
     unsigned int MASK=pow(2,r)-1;
-    unsigned int count[bits];
     unsigned int Pcount[bits];
+    unsigned int count[bits];
 
     for(int i=0; i<(b/r); i++)
     {
         memset(count, 0, sizeof(unsigned int)*bits);
+//#pragma omp parallel for schedule(dynamic, 1)
         for(int k=0; k<numData; k++)
         {
-            count[ (A[k]>>(i*r)) & MASK]++;
+            __sync_fetch_and_add(&count[(A[k]>>(i*r))&MASK],1);
         }
 
         memset(Pcount, 0, sizeof(unsigned int)*bits);
+
         int tot=0;
         for(int j=0; j<(bits-1); j++)
         {
             Pcount[j+1]= Pcount[j]+count[j];
             tot += count[j];
-            printf("%d\t", count[j]);
-            fflush(stdout);
+            //printf("%d\t", count[j]);
+            //fflush(stdout);
         }
         tot += count[bits-1];
-        printf("\tTotal %d\n", tot);
+        //printf("\tTotal %d\n", tot);
 
 
         memset(count, 0, sizeof(unsigned int)*bits);
         memset(tmp_data, 0, numData*sizeof(unsigned int));
 
+//#pragma omp parallel for schedule(dynamic, 1)
         for(int k=0; k<numData; k++)
         {
-            int pos = count[ (A[k]>>(i*r)) & MASK]++;
+            int pos = __sync_fetch_and_add(&count[ (A[k]>>(i*r)) & MASK],1);
             int start = Pcount[ (A[k]>>(i*r)) & MASK];
             tmp_data[start+pos]=A[k];
         }
@@ -228,12 +231,13 @@ void radix_sort_s(unsigned int *data, int numData)
 
 void main(int argc, char **argv)
 {
-    if(argc-1 < 3 ){
+    if(argc-1 < 2 ){
         printf("Error : Please use ./rs_openmp <path to data file> <Number of threads> <path to o/p file>.\n");
         exit(0);
     }
     FILE *fData = fopen(argv[1],"r");
     numThreads=atoi(argv[2]);
+    omp_set_num_threads(numThreads);
     FILE *fOutput= fopen(argv[3],"w+");
 
     if(fData== NULL) {
@@ -283,7 +287,8 @@ void main(int argc, char **argv)
 
     print_time(end-start);
 
-    print_numbers(argv[3], data, numData);
+    if(argv[3])
+        print_numbers(argv[3], data, numData);
 
     if(tmp_data)
         free(tmp_data);
