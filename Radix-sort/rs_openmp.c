@@ -1,86 +1,20 @@
-#include <stdio.h> 		// For printf();
+#include <stdio.h> 	// For printf();
 #include <stdlib.h>     // For exit();
-#include <errno.h> 		// For errno for error handling
+#include <errno.h> 	// For errno for error handling
 #include <string.h> 	// To include memset
-#include <math.h> 		// To use sqrt()
-#include "util.h"        // To use the timer functions
+#include <math.h> 	// To use sqrt()
+#include "util.h"       // To use the timer functions
 #include <omp.h>
 
 /* GLOBAL DECLARATIONS */
-#define NUM_DIGITS 16
 #define TID omp_get_thread_num()
 int numData, numThreads;
 
-//typdef unsigned int Data;
-
-void printData(char *name, unsigned int *data, int numData);
-
-void radix_sort_A(unsigned int *A,unsigned int *tmp_data,  int numData)
-{
-    int b=32; 
-    int r=8;
-    int bits=pow(2,r);
-    unsigned int MASK=pow(2,r)-1;
-    unsigned int Pcount[bits];
-    unsigned int count[numThreads][bits];
-
-    for(int i=0; i<(b/r); i++)
-    {
-#pragma omp parallel for schedule(static)
-        for(int j=0; j<numThreads; j++)
-            for(int k=0; k<bits; k++)
-                count[j][k]=0;
-
-#pragma omp parallel for schedule(static)
-        for(int k=0; k<numData; k++)
-            count[TID][(A[k]>>(i*r))&MASK]++;
-
-#pragma omp parallel for schedule(static)
-        for(int k=0; k<bits; k++)
-            Pcount[k]=0;
-
-#pragma omp parallel for schedule(static)
-        for(int j=0; j<bits; j++)
-        {
-            for(int k=0; k<numThreads; k++)
-            {
-                int tmp=count[k][j];
-                count[k][j]=Pcount[j];
-                Pcount[j] += tmp; 
-            }
-        }
-
-        int prev=0;
-        for(int j=0; j<bits; j++){
-            int tmp=Pcount[j];
-            Pcount[j]=prev;
-            prev +=tmp;
-        }
-
-#pragma omp parallel for schedule(static)
-        for(int k=0; k<numData; k++)
-        {
-            int pos = count[TID][(A[k]>>(i*r))&MASK]++;
-            int start = Pcount[(A[k]>>(i*r))&MASK];
-            tmp_data[start+pos]=A[k];
-        }
-
-#pragma omp parallel for schedule(static)
-        for(int k=0; k<numData; k++)
-            A[k]=tmp_data[k];
-    }
-}
-
-void printData(char *name, unsigned int *data, int numData)
-{
-    printf("%10s(%10d): ", name, numData);
-    for(int j=0; j<numData; j++)
-        printf("%10d ", data[j]);
-    printf("\n");
-}
+void radixSort(unsigned int *A,unsigned int *tmp_data,  int numData);
 
 void main(int argc, char **argv)
 {
+    /*XXX:*/
     if(argc-1 < 2 ){
         printf("Error : Please use ./rs_openmp <path to data file> <Number of threads> <path to o/p file>.\n");
         exit(0);
@@ -88,55 +22,42 @@ void main(int argc, char **argv)
     FILE *fData = fopen(argv[1],"r");
     numThreads=atoi(argv[2]);
     omp_set_num_threads(numThreads);
-    FILE *fOutput= fopen(argv[3],"w+");
 
     if(fData== NULL) {
         printf("Error while opening the file %s.Errno = %d.\n", argv[1], errno);
         exit(1);
-    } else {
-        printf("Data file       = \"%s\".\n"
-                "Num of threads  = %d.\n" 
-                "Output file     = \"%s\".\n", argv[1], numThreads, argv[3]);
-    }
+    } 
+    
     if(fscanf(fData,"%d", &numData) < 1) {
         printf("Error while getting the number of Data . errno= %d\n", errno);
         exit(1);
     }
-    printf("Number of data points = %d \n", numData);
-
-    unsigned int *data ;
-
-    if(numData*sizeof(unsigned int)> (100*1000*1000)) {
-        printf("Input data size(%.4fMB) is greater than allowed(100MB).\n", ((double)numData*sizeof(unsigned int)/(1000*1000)));
-        //exit(1);
-    }
-
-    data=calloc(numData, sizeof(unsigned int));
-
-    if(data==NULL ){
+   
+    // Holds the original data
+    unsigned int *data=calloc(numData, sizeof(unsigned int));
+    // Used to hold temporary sorted data 
+    unsigned int *tmp_data=calloc(numData, sizeof(unsigned int));
+    
+    if(data==NULL){
         printf("Out of memory! while allocating mem for Data. errno %d \n",errno);
         exit(1);
     }
 
-    // Read the data 
+    // Read the data from input file 
     for(int i=0; i< numData; i++) {
         if(fscanf(fData,"%u", &data[i]) != 1) {
             printf("Error while getting the (%d)data . errno= %d\n", i, errno);
             exit(0);
         }
     }
-    //printf("\n*****************  Data elements *************************\n");
-    //for(int i=0; i< numData; i++)
-    //  printf("%u\t", data[i]);
-    //printf("\n**********************************************************\n");
 
-    unsigned int *tmp_data=calloc(numData, sizeof(unsigned int));
     double start=monotonic_seconds();
-    radix_sort_A(data,tmp_data, numData);
+    radixSort(data,tmp_data, numData);
     double end=monotonic_seconds();
 
     print_time(end-start);
 
+    //XXX:
     if(argv[3])
         print_numbers(argv[3], data, numData);
 
@@ -146,6 +67,75 @@ void main(int argc, char **argv)
         free(data);
     if(fData)
         fclose(fData);
-    if(fOutput)
-        fclose(fOutput);
 }
+
+void radixSort(unsigned int *data,unsigned int *tmp_data,  int numData)
+{
+    int b=32;       // unsigned int=32 numOfValues
+    int r=8;        // r-bit blocks per loop
+    int numOfValues=pow(2,r);         // Range of values for r-bit blocks
+    unsigned int MASK=pow(2,r)-1;     // Mask to get the r-bit block from the number
+
+    /* Local count for the bits per thread*/
+    unsigned int count[numThreads][numOfValues];
+
+    /* Sum of the r-bit counts across threads */
+    unsigned int Pcount[numOfValues];
+
+    for(int i=0; i<(b/r); i++)
+    {
+      /* All OpenMP segments are executed which static scheduling so that
+	 threads access the same elements to increase locality */
+#pragma omp parallel for schedule(static)
+        for(int j=0; j<numThreads; j++)
+            for(int k=0; k<numOfValues; k++)
+                count[j][k]=0;
+
+#pragma omp parallel for schedule(static)
+        for(int k=0; k<numData; k++)
+            count[TID][(data[k]>>(i*r))&MASK]++;
+
+#pragma omp parallel for schedule(static)
+        for(int k=0; k<numOfValues; k++)
+            Pcount[k]=0;
+	
+	/*This loop is to find the Reduction for each r-bit value across
+	  all threads. Calculation of each bit reduction is independetn of each 
+	  other, thus can be done in parallel.	*/
+#pragma omp parallel for schedule(static)
+        for(int j=0; j<numOfValues; j++)
+        {
+            for(int k=0; k<numThreads; k++)
+            {
+                int tmp=count[k][j];
+                count[k][j]=Pcount[j];
+                Pcount[j] += tmp; 
+            }
+        }
+
+	/* Serially converting the Reduction the r-bit sums to Pcount */
+        int prev=0;
+        for(int j=0; j<numOfValues; j++){
+            int tmp=Pcount[j];
+            Pcount[j]=prev;
+            prev +=tmp;
+        }
+
+	/* Put the data back into a temporary data array, using the 
+	   reduction variables calcluated from above.	 */
+#pragma omp parallel for schedule(static)
+        for(int k=0; k<numData; k++)
+        {
+            int pos = count[TID][(data[k]>>(i*r))&MASK]++;
+            int start = Pcount[(data[k]>>(i*r))&MASK];
+            tmp_data[start+pos]=data[k];
+        }
+
+	/* The temporary sorted data will now become the actual data as we 
+	   swap the addresses */
+	unsigned int *tmp=data;
+	data=tmp_data;
+	tmp_data=tmp;
+    }
+}
+
