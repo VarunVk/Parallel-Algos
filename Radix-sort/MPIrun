@@ -1,1 +1,19 @@
-mpirun -np 2  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/1M.txt b 
+#!/bin/sh
+set -x
+mpirun -np 1  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/1M.txt  
+mpirun -np 2  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/1M.txt 
+mpirun -np 4  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/1M.txt
+mpirun -np 8  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/1M.txt 
+mpirun -np 16  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/1M.txt
+
+mpirun -np 1  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/10M.txt 
+mpirun -np 2  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/10M.txt 
+mpirun -np 4  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/10M.txt 
+mpirun -np 8  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/10M.txt
+mpirun -np 16  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/10M.txt 
+
+mpirun -np 1  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/100M.txt 
+mpirun -np 2  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/100M.txt 
+mpirun -np 4  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/100M.txt 
+mpirun -np 8  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/100M.txt 
+mpirun -np 16  ./rs_mpi /export/scratch/CSCI-5451/assignment-2/100M.txt
