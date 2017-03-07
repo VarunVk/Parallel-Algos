@@ -1,8 +1,8 @@
-#include <stdio.h> 	// For printf();
+#include <stdio.h>      // For printf();
 #include <stdlib.h>     // For exit();
-#include <errno.h> 	// For errno for error handling
+#include <errno.h>      // For errno for error handling
 #include <string.h> 	// To include memset
-#include <math.h> 	// To use sqrt()
+#include <math.h>       // To use sqrt()
 #include "util.h"       // To use the timer functions
 #include <omp.h>
 
@@ -10,20 +10,19 @@
 #define TID omp_get_thread_num()
 int numData, numThreads;
 
-void radixSort(unsigned int *A,unsigned int *tmp_data,  int numData);
+unsigned int * radixSort(unsigned int *A,unsigned int *tmp_data,  int numData);
 
 void main(int argc, char **argv)
 {
-    /*XXX:*/
-    if(argc-1 < 2 ){
+    if(argc-1 < 3 ){
         printf("Error : Please use ./rs_openmp <path to data file> <Number of threads> <path to o/p file>.\n");
-        exit(0);
+        exit(1);
     }
     FILE *fData = fopen(argv[1],"r");
     numThreads=atoi(argv[2]);
     omp_set_num_threads(numThreads);
 
-    if(fData== NULL) {
+    if(fData==NULL) {
         printf("Error while opening the file %s.Errno = %d.\n", argv[1], errno);
         exit(1);
     } 
@@ -52,14 +51,12 @@ void main(int argc, char **argv)
     }
 
     double start=monotonic_seconds();
-    radixSort(data,tmp_data, numData);
+    data=radixSort(data,tmp_data, numData);
     double end=monotonic_seconds();
 
     print_time(end-start);
 
-    //XXX:
-    if(argv[3])
-        print_numbers(argv[3], data, numData);
+    print_numbers(argv[3], data, numData);
 
     if(tmp_data)
         free(tmp_data);
@@ -69,10 +66,10 @@ void main(int argc, char **argv)
         fclose(fData);
 }
 
-void radixSort(unsigned int *data,unsigned int *tmp_data,  int numData)
+unsigned int * radixSort(unsigned int *data,unsigned int *tmp_data,  int numData)
 {
-    int b=32;       // unsigned int=32 numOfValues
-    int r=8;        // r-bit blocks per loop
+    int b=32;       // unsigned int=32 bits
+    int r=8;        // Choosing r-bit blocks per loop
     int numOfValues=pow(2,r);         // Range of values for r-bit blocks
     unsigned int MASK=pow(2,r)-1;     // Mask to get the r-bit block from the number
 
@@ -90,7 +87,8 @@ void radixSort(unsigned int *data,unsigned int *tmp_data,  int numData)
         for(int j=0; j<numThreads; j++)
             for(int k=0; k<numOfValues; k++)
                 count[j][k]=0;
-
+	
+	/* Count the number of data which have the same r-bit value */
 #pragma omp parallel for schedule(static)
         for(int k=0; k<numData; k++)
             count[TID][(data[k]>>(i*r))&MASK]++;
@@ -99,8 +97,8 @@ void radixSort(unsigned int *data,unsigned int *tmp_data,  int numData)
         for(int k=0; k<numOfValues; k++)
             Pcount[k]=0;
 	
-	/*This loop is to find the Reduction for each r-bit value across
-	  all threads. Calculation of each bit reduction is independetn of each 
+	/*This loop is to evaluate Prefix Scan for each r-bit value across
+	  all threads. Calculation of each bit reduction is independent of each 
 	  other, thus can be done in parallel.	*/
 #pragma omp parallel for schedule(static)
         for(int j=0; j<numOfValues; j++)
@@ -113,7 +111,8 @@ void radixSort(unsigned int *data,unsigned int *tmp_data,  int numData)
             }
         }
 
-	/* Serially converting the Reduction the r-bit sums to Pcount */
+	/* Serially converting the Reduction the r-bit sums to Pcount, 
+       as numOfValues is a small number  */
         int prev=0;
         for(int j=0; j<numOfValues; j++){
             int tmp=Pcount[j];
@@ -137,5 +136,5 @@ void radixSort(unsigned int *data,unsigned int *tmp_data,  int numData)
 	data=tmp_data;
 	tmp_data=tmp;
     }
+    return data;
 }
-

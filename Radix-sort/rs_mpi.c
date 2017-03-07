@@ -37,8 +37,7 @@ void main(int argc, char **argv)
 
     /* Input routine to be done by single process i.e rank=0*/
     if(myrank==ROOT) {
-        /*XXX:*/
-        if(argc-1 < 1 ){
+        if(argc-1 < 2 ){
             printf("Error : Please use ./rs_mpi <path to data file> <path to o/p file>.\n");
             error=1;
         } else if ((fData=fopen(argv[1],"r")) ==NULL) {
@@ -47,7 +46,6 @@ void main(int argc, char **argv)
         } else if(fscanf(fData,"%d", &numData) < 1) {
             printf("Error while getting the number of Data . errno= %d\n", errno);
             error=3;
-            /*XXX:*/
         } else if((data=calloc(numData, sizeof(unsigned int))) == NULL) {
             printf("Out of memory! while allocating mem for Data. errno %d \n",errno);
             error=4;
@@ -77,19 +75,16 @@ void main(int argc, char **argv)
 
     /* Only the ROOT monitors the time */
     if(myrank==0)
-        start=monotonic_seconds();
+        start=MPI_Wtime();
 
     /* Divide the Data by number of processes */ 
     radixSort(data, numData/numThreads);
 
     MPI_Barrier(MPI_COMM_WORLD);
     if(myrank==0) {
-        end=monotonic_seconds();
+        end=MPI_Wtime();
         print_time(end-start);
-        /* Ouput to file done by the ROOT process */ 
-        /*XXX:*/ 
-        if(argv[2])
-            print_numbers(argv[2], data, numData);
+        print_numbers(argv[2], data, numData);
     }
     MPI_Finalize();
 }
@@ -110,8 +105,8 @@ void radixSort(unsigned int *data, int numData)
     /* Global Scan count of the r-bit value of the data. Evaluated only at the ROOT*/
     unsigned int Scan_Gcount[numOfValues];
 
-    /*This 2 variables while sending data back to ROOT using MPI_Gatherv
-      holding the counts of the array elements and the displacements */
+    /*These 2 variables are used while sending data back to ROOT using MPI_Gatherv.
+       Holding the counts of the array elements and the displacements respectively */
     unsigned int recvcounts[numThreads];
     unsigned int displs[numThreads];
 
@@ -157,25 +152,31 @@ void radixSort(unsigned int *data, int numData)
             memset(recvcounts, 0, sizeof(unsigned int)*numThreads);
             memset(displs, 0, sizeof(unsigned int)*numThreads);
 
-            MPI_Gather(&Lcount[k], 1, MPI_INT, recvcounts, 
-                    1, MPI_INT, ROOT, MPI_COMM_WORLD); 
-            MPI_Scan(&Lcount[k], &local_sum, 1, MPI_INT, 
-                    MPI_SUM, MPI_COMM_WORLD); 
+            if(MPI_SUCCESS != MPI_Gather(&Lcount[k], 1, MPI_INT, recvcounts, 
+                    1, MPI_INT, ROOT, MPI_COMM_WORLD))
+                printf("(P%d): Unable to gather data.\n", myrank);
 
-            MPI_Gather(&local_sum, 1, MPI_INT, 
-                    displs, 1, MPI_INT, ROOT,MPI_COMM_WORLD);
+            if(MPI_SUCCESS != MPI_Scan(&Lcount[k], &local_sum, 1, MPI_INT, 
+                    MPI_SUM, MPI_COMM_WORLD))
+                printf("(P%d): Unable to scan Local sum.\n", myrank);
+
+            if(MPI_SUCCESS != MPI_Gather(&local_sum, 1, MPI_INT, 
+                    displs, 1, MPI_INT, ROOT,MPI_COMM_WORLD))
+                printf("(P%d): Unable to gather local sum.\n", myrank);
 
             /* MPI_Scan provides inclusive Scan convert that to Exclusive Scan */
             if(myrank==ROOT)
                 convertToExclusiveScan(displs, numThreads);
 
-            MPI_Gatherv(sortedLocalData+Scan_Lcount[k], Lcount[k], MPI_INT,
+            if(MPI_SUCCESS != MPI_Gatherv(sortedLocalData+Scan_Lcount[k], Lcount[k], MPI_INT,
                     data+Scan_Gcount[k], recvcounts, displs, 
-                    MPI_INT, ROOT, MPI_COMM_WORLD);
+                    MPI_INT, ROOT, MPI_COMM_WORLD))
+                printf("(P%d): MPI_Gatherv  error.\n", myrank);
         }
     }
 }
 
+/* Pre fix Scan is done serially as the numOfValues is small compared to the input size*/
 void exclusiveScan(unsigned int *res, unsigned int *data, int size)
 {
     res[0]=0;
