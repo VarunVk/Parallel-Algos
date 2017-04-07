@@ -1,6 +1,5 @@
-
-pagerank: pagerank.c pr_graph.c
-	$(CC) -std=c99 -march=native -O3 -Wall -Wno-unused-result *.c -o pagerank -lm
+pagerank: clean pagerank.c pr_graph.c
+	mpicc -o pagerank *.c -lm  -march=native -ffast-math -O3 -std=c99
 
 clean:
 	rm -f pagerank

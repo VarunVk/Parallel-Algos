@@ -2,6 +2,8 @@
 #define PAGERANK_GRAPH_H
 
 #include <stdint.h>
+#define CHUNK_SIZE 250 
+#define ROOT 0
 
 typedef uint64_t pr_int;
 
