@@ -84,9 +84,8 @@ int main(
   double gflops = 1e-9 * (double) flops / elapsed_time;
   printf("CPU time: %0.3fs  GFLOPS: %0.2f\n", elapsed_time, gflops);
 
-
   start_time = monotonic_seconds();
-  image_t * output_cuda = stencil_cuda(im, emboss, num_times);
+  image_t * output_cuda = stencil_cuda(im, blur, num_times);
   elapsed_time = monotonic_seconds() - start_time;
   gflops = 1e-9 * (double) flops / elapsed_time;
   printf("GPU time: %0.3fs  GFLOPS: %0.2f\n", elapsed_time, gflops);
@@ -102,6 +101,3 @@ int main(
 
   return EXIT_SUCCESS;
 }
-
-
-
